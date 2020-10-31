@@ -6,6 +6,7 @@ from os import mkdir, path
 
 from mysac.batch.numpy_batch import NumpySampledBuffer
 from mysac.envs.pyrep_env import CartPoleEnv
+from mysac.envs.stockenv import StockEnv
 from mysac.models.mlp import PolicyModel, QModel
 from mysac.sac.sac import SACAgent
 from mysac.trainers.generic_train import generic_train
@@ -35,21 +36,22 @@ def run_experiment_from_specs(experiment_folder: str):
     with open(experiment_folder + '/meta.json', 'w') as meta_file:
         json.dump(meta, meta_file)
 
-    env = CartPoleEnv(headless=False)
+    # env = CartPoleEnv(headless=False)
+    env = StockEnv()
 
     buffer = NumpySampledBuffer(
-        size=int(1e6), observation_size=10, action_size=2)
+        size=int(1e6), observation_size=6, action_size=1)
 
     agent = SACAgent(
         # Env
         env=env,
 
         # Models
-        policy_model=PolicyModel(10, 2, 512),
-        q1_model=QModel(10, 2, 512),
-        q2_model=QModel(10, 2, 512),
-        q1_target=QModel(10, 2, 512),
-        q2_target=QModel(10, 2, 512),
+        policy_model=PolicyModel(6, 1, 512),
+        q1_model=QModel(6, 1, 512),
+        q2_model=QModel(6, 1, 512),
+        q1_target=QModel(6, 1, 512),
+        q2_target=QModel(6, 1, 512),
 
         # Hyperparams
         gamma=0.99,
@@ -65,9 +67,9 @@ def run_experiment_from_specs(experiment_folder: str):
         buffer=buffer,
         experiment_folder=experiment_folder,
         batch_size=256,
-        max_steps_per_episode=1000,
-        sampled_steps_per_epoch=1000,
-        train_steps_per_epoch=1000
+        max_steps_per_episode=28800,
+        sampled_steps_per_epoch=28800,
+        train_steps_per_epoch=256
     )
 
 

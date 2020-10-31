@@ -32,27 +32,33 @@ def generic_train(
     """
     while True:
         # Eval
+        env.valid()
         trajectory = BasicTrajectorySampler.sample_trajectory(
             env=env,
             agent=agent,
-            max_steps_per_episode=500,
-            total_steps=500,
-            deterministic=True
+            max_steps_per_episode=5000000,
+            total_steps=50000000,
+            deterministic=True,
+            single_episode=True
         )
 
-        print('Eval reward:', np.sum(trajectory['rewards'])/500)
+        print('Eval reward:', np.sum(trajectory['rewards']))
         with open(experiment_folder + '/stats/eval_stats.csv', 'a') as stat_f:
             stat_f.write(f'{np.sum(trajectory["rewards"])}\n')
 
         # Sample
+        env.train()
         trajectory = BasicTrajectorySampler.sample_trajectory(
             env=env,
             agent=agent,
             max_steps_per_episode=max_steps_per_episode,
-            total_steps=sampled_steps_per_epoch
+            total_steps=sampled_steps_per_epoch,
+            single_episode=True
         )
+        print('End sampling, adding to buffer...')
 
         buffer.add_trajectory(**trajectory)
+        print('End buffer')
 
         # Train
         for _ in tqdm(range(train_steps_per_epoch)):

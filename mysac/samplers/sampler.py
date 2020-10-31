@@ -9,7 +9,8 @@ class BasicTrajectorySampler:
     @staticmethod
     def sample_trajectory(env: Env, agent, max_steps_per_episode: int,
                           total_steps: int,
-                          deterministic: bool = False) -> Dict[str, List[float]]:
+                          deterministic: bool = False,
+                          single_episode: bool = False) -> Dict[str, List[float]]:
         """ Sample a trajectory
 
         Args:
@@ -63,6 +64,9 @@ class BasicTrajectorySampler:
                 episode_steps += 1
 
             episodes += 1
+
+            if single_episode:
+                break
 
         return {
             'observations': np.array(observations),

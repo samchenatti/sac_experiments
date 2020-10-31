@@ -58,10 +58,10 @@ class NumpySampledBuffer:
 
         self.ix = min(self.ix + new_steps, self.size - 1)
 
-        assert 0 not in self.observations[:self.ix - 1].sum(axis=1)
-        assert 0 not in self.next_observations[:self.ix - 1].sum(axis=1)
-        assert 0 not in self.rewards[:self.ix - 1].sum(axis=1)
-        assert 0 not in self.actions[:self.ix - 1].sum(axis=1)
+        # assert 0 not in self.observations[:self.ix - 1].sum(axis=1)
+        # assert 0 not in self.next_observations[:self.ix - 1].sum(axis=1)
+        # assert 0 not in self.rewards[:self.ix - 1].sum(axis=1)
+        # assert 0 not in self.actions[:self.ix - 1].sum(axis=1)
 
     def sample(self, n_samples: int) -> Tuple[List[float], List[float],
                                               List[float], List[float],
