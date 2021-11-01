@@ -1,11 +1,9 @@
 # pylint: disable=no-member
-import time
 
 import torch
-import torch.nn.functional as F
 from mysac.models.mlp import PolicyModel as MLPPolicyModel
 from mysac.models.mlp import QModel as MLPQModel
-from numpy import intp
+from mysac.utils import get_device
 from torch import nn
 
 # Numerical stability
@@ -18,15 +16,10 @@ W_INIT_VALUE = 3e-3
 
 
 class AttentionBase(nn.Module):
-    def __init__(
-        self, num_inputs: int, num_outputs: int, pos_embedding: bool = False
-    ):
+    def __init__(self, num_inputs: int, num_outputs: int):
         super(AttentionBase, self).__init__()
 
-        self.pos_embedding = pos_embedding
-
-        if pos_embedding:
-            num_inputs += 1
+        num_inputs = num_inputs + 1
 
         self.query = nn.Linear(
             in_features=num_inputs,
@@ -57,14 +50,23 @@ class AttentionBase(nn.Module):
             batch_first=True
         )
 
+        self.recurrent_layer = nn.LSTM(
+            num_inputs,
+            32,
+            batch_first=True
+        )
+
         self.norm_1 = nn.LayerNorm(normalized_shape=num_outputs)
         self.norm_2 = nn.LayerNorm(normalized_shape=num_outputs)
 
     def forward(self, state: torch.tensor) -> torch.tensor:
-        if self.pos_embedding:
+        if True:
             batch_size = state.shape[0]
+            num_frames = state.shape[1]
 
-            position_enconding = torch.arange(20).to('cuda:0')/20
+            position_enconding = torch.arange(num_frames).to(get_device())
+            position_enconding *= num_frames
+
             position_enconding = position_enconding.repeat(batch_size)
             position_enconding = position_enconding.reshape(batch_size, 20, 1)
 
@@ -80,7 +82,11 @@ class AttentionBase(nn.Module):
 
         linear_context = self.post_linear(context)
 
-        return self.norm_2(context + linear_context)
+        _, (embedded, _) = self.recurrent_layer(
+            self.norm_2(context + linear_context)
+        )
+
+        return embedded.squeeze(0)
 
 
 class QModel(nn.Module):
@@ -89,21 +95,16 @@ class QModel(nn.Module):
     ):
         super(QModel, self).__init__()
 
-        self.attention_base = nn.Sequential(
-            AttentionBase(num_inputs=10, num_outputs=11, pos_embedding=True),
-            *(10*[AttentionBase(num_inputs=11, num_outputs=11)])
-        )
+        self.attention_base = AttentionBase(num_inputs=10, num_outputs=11)
 
         del kwargs['num_inputs']
 
-        self.mlp_q = MLPQModel(num_inputs=11, hidden_sizes=32, **kwargs)
+        self.mlp_q = MLPQModel(num_inputs=32, hidden_sizes=32, **kwargs)
 
         print('Q Model:', self)
 
     def forward(self, state: torch.tensor, action: torch.tensor):
         state = self.attention_base.forward(state)
-
-        state = state.mean(dim=1)
 
         return self.mlp_q.forward(observations=state, actions=action)
 
@@ -119,19 +120,16 @@ class PolicyModel(nn.Module):
     ):
         super(PolicyModel, self).__init__()
 
-        self.attention_base = nn.Sequential(
-            AttentionBase(num_inputs=10, num_outputs=11, pos_embedding=True),
-            *(10*[AttentionBase(num_inputs=11, num_outputs=11)])
-        )
+        self.attention_base = AttentionBase(num_inputs=10, num_outputs=11)
 
         self.mlp_policy = MLPPolicyModel(
-            *args, num_inputs=11, hidden_sizes=32, **kwargs)
+            *args, num_inputs=32, hidden_sizes=32, **kwargs)
 
     def forward(self, state: torch.tensor):
         if len(state.shape) == 2:
             state = state.unsqueeze(0)
 
-        state = self.attention_base.forward(state).mean(dim=1)
+        state = self.attention_base.forward(state)
 
         mean, std = self.mlp_policy.forward(observations=state)
 
