@@ -1,6 +1,8 @@
 # pylint: disable=no-member
 
+import matplotlib
 import torch
+from matplotlib import pyplot
 from mysac.models.mlp import PolicyModel as MLPPolicyModel
 from mysac.models.mlp import QModel as MLPQModel
 from mysac.utils import get_device
@@ -16,8 +18,15 @@ W_INIT_VALUE = 3e-3
 
 
 class AttentionBase(nn.Module):
-    def __init__(self, num_inputs: int, num_outputs: int):
+    def __init__(
+        self,
+        num_inputs: int,
+        num_outputs: int,
+        viz_attention: bool = False
+    ):
         super(AttentionBase, self).__init__()
+
+        self.viz_attention = viz_attention
 
         num_inputs = num_inputs + 1
 
@@ -60,6 +69,11 @@ class AttentionBase(nn.Module):
         self.norm_2 = nn.LayerNorm(normalized_shape=num_outputs)
 
     def forward(self, state: torch.tensor) -> torch.tensor:
+        # Retrocompatibility with already trained models
+        if not hasattr(self, 'viz_attention'):
+            self.viz_attention = True
+            pyplot.ion()
+
         if True:
             batch_size = state.shape[0]
             num_frames = state.shape[1]
@@ -76,7 +90,12 @@ class AttentionBase(nn.Module):
         K = self.key(state)
         V = self.value(state)
 
-        context, _ = self.multi_head_attention(query=Q, key=K, value=V)
+        context, attn_output_weights = self.multi_head_attention(
+            query=Q,
+            key=K,
+            value=V,
+            need_weights=self.viz_attention
+        )
 
         context = self.norm_1(context + state)
 
@@ -85,6 +104,15 @@ class AttentionBase(nn.Module):
         _, (embedded, _) = self.recurrent_layer(
             self.norm_2(context + linear_context)
         )
+
+        if self.viz_attention:
+            pyplot.imshow(
+                X=attn_output_weights.cpu().detach().numpy()[0],
+                vmin=0,
+                vmax=1
+            )
+
+            pyplot.pause(0.1)
 
         return embedded.squeeze(0)
 
