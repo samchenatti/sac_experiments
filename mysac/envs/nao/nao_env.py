@@ -3,7 +3,8 @@ import time
 from typing import List, Optional, Tuple
 
 import numpy as np
-from gym import Env, spaces
+# from gym import Env, spaces
+from gymnasium import Env, spaces
 from mysac.envs.nao.constants import STATES_TO_DROP
 from pyrep import PyRep
 from pyrep.backend.sim import simGetObjectVelocity
@@ -88,7 +89,8 @@ class NAO:
     Args:
         headless: if True, will not display the CoppeliaSim interface
     """
-    SCENES_FOLDER = ('./mysac/envs/coppelia_scenes/')
+    SCENES_FOLDER = (
+        '/home/figo/Develop/IC/sac_experiments/mysac/envs/coppelia_scenes/')
 
     SCENE_FILE = 'nao_walk_original.ttt'
 
@@ -106,9 +108,11 @@ class NAO:
         self.joint_limits = []
         self.energy_cost_threshold = energy_cost_threshold
 
+        print('Before PyRep start')
         self.pr = PyRep()
         self.pr.launch(self.SCENES_FOLDER + self.SCENE_FILE, headless=headless)
         self.pr.start()
+        print('After PyRep start')
 
         self.head: Shape = None
         self.chest: Shape = None
@@ -121,6 +125,11 @@ class NAO:
         self.action_space = spaces.Box(
             low=np.array(len(self.joint_limits) * [-1]),
             high=np.array(len(self.joint_limits) * [1]),
+        )
+
+        self.observation_space = spaces.Box(
+            low=np.array(30 * [np.inf]),
+            high=np.array(30 * [np.inf])
         )
 
         self.pomdp_states = pomdp_states
@@ -231,7 +240,7 @@ class WalkingNao(NAO, Env):
 
         return observation
 
-    def reset(self, random_initialization: bool = True) -> np.array:
+    def reset(self, random_initialization: bool = True, seed=None) -> np.array:
         """
         Reset the env to the initial state, optionally doing a random action
 
@@ -252,7 +261,7 @@ class WalkingNao(NAO, Env):
 
         self.total_steps = 0
 
-        return self.get_observation()
+        return self.get_observation(), {}
 
     def get_foot_sensor_signal(self) -> List[float]:
         """
@@ -406,7 +415,7 @@ class WalkingNao(NAO, Env):
             j.get_joint_velocity() for j in self.all_joints
         ]
 
-        return self.get_observation(), self.get_reward(), done, ''
+        return self.get_observation(), self.get_reward(), False, done, {}
 
     def post_episode_sampling_callback(
             self, rewards: List[np.array]) -> List[np.array]:
